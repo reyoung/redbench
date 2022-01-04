@@ -6,8 +6,10 @@ import (
 	"flag"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/reyoung/piperedis"
 )
 
 type redisClient interface {
@@ -16,9 +18,14 @@ type redisClient interface {
 }
 
 var (
-	gRedisAddrs = flag.String("redis_addrs", "localhost:6379", "comma separated redis addresses")
-	gRedisDb    = flag.Int("redis_db", 0, "redis db")
-	gRedisPwd   = flag.String("redis_pwd", "", "redis password")
+	gRedisAddrs               = flag.String("redis_addrs", "localhost:6379", "comma separated redis addresses")
+	gRedisDb                  = flag.Int("redis_db", 0, "redis db")
+	gRedisPwd                 = flag.String("redis_pwd", "", "redis password")
+	gRedisUseAutoPipe         = flag.Bool("redis_use_auto_pipe", false, "use auto pipe")
+	gRedisAutoPipeNWorkers    = flag.Int("redis_auto_pipe_n_workers", 4, "number of workers for auto pipe")
+	gRedisAutoPipeBufSize     = flag.Int("redis_auto_pipe_buf_size", 32, "min size for auto pipe")
+	gRedisAutoPipeMaxInterval = flag.Duration("redis_auto_pipe_worker_timeout", time.Millisecond,
+		"timeout for auto pipe worker")
 )
 
 func newRedisClientFromArgs() (redisClient, error) {
@@ -35,5 +42,13 @@ func newRedisClientFromArgs() (redisClient, error) {
 	if err := client.Ping(context.Background()).Err(); err != nil {
 		return nil, err
 	}
-	return client, nil
+	if !*gRedisUseAutoPipe {
+		return client, nil
+	}
+
+	return piperedis.New(client, piperedis.Option{
+		NumBackgroundWorker: *gRedisAutoPipeNWorkers,
+		ChannelBufferSize:   *gRedisAutoPipeBufSize,
+		MinCollectInterval:  *gRedisAutoPipeMaxInterval,
+	})
 }
