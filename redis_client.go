@@ -26,6 +26,8 @@ var (
 	gRedisAutoPipeBufSize     = flag.Int("redis_auto_pipe_buf_size", 32, "min size for auto pipe")
 	gRedisAutoPipeMaxInterval = flag.Duration("redis_auto_pipe_worker_timeout", time.Millisecond,
 		"timeout for auto pipe worker")
+	gRedisAutoPipeMaxNRequestPerPipe = flag.Int("redis_max_n_request_per_pipe", 0,
+		"max number of requests per pipe")
 )
 
 func newRedisClientFromArgs() (redisClient, error) {
@@ -47,8 +49,9 @@ func newRedisClientFromArgs() (redisClient, error) {
 	}
 
 	return piperedis.New(client, piperedis.Option{
-		NumBackgroundWorker: *gRedisAutoPipeNWorkers,
-		ChannelBufferSize:   *gRedisAutoPipeBufSize,
-		MinCollectInterval:  *gRedisAutoPipeMaxInterval,
+		NumBackgroundWorker:    *gRedisAutoPipeNWorkers,
+		ChannelBufferSize:      *gRedisAutoPipeBufSize,
+		MinCollectInterval:     *gRedisAutoPipeMaxInterval,
+		MaxNRequestsInPipeline: *gRedisAutoPipeMaxNRequestPerPipe,
 	})
 }
